@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.venv/
+venv/
+
+rag-service.db
+rag-service.db-shm
+rag-service.db-wal
+
+.DS_Store
+*.swp
+*.swo
