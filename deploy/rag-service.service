@@ -10,11 +10,11 @@ Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /home/egarcia/.rag-service/app/server.py
 Restart=always
 RestartSec=3
-KillMode=process
+KillMode=control-group
 KillSignal=SIGINT
 FinalKillSignal=SIGKILL
 SendSIGKILL=yes
-TimeoutStopSec=5
+TimeoutStopSec=10
 
 [Install]
 WantedBy=default.target

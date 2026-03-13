@@ -7,6 +7,7 @@ Build a local RAG service running continuously on the Asus GX10 to maintain a gl
 - technical documents
 - source code and configuration
 - Thunderbird / IMAP email archives
+- Jira issue archives
 
 The system must:
 
@@ -23,10 +24,22 @@ The system must provide:
 - automated incremental indexing
 - clean file-level reindexing
 - Thunderbird mailbox support
+- Jira issue archive support with structured fields for issue key, status, fix version, feature, sprint, and component
 - attachment text extraction for useful file types
 - hybrid search: vector + BM25
 - real-time monitoring and control
 - resilience to crashes, reboots, and power loss
+- batched and parallel embedding requests to avoid under-utilizing the machine during large ingest runs
+- live Ollama / GPU visibility in the UI, including GPU utilization, GPU memory usage, and Ollama runner activity
+- configurable embedding throughput controls in the UI (`embed batch size`, `embed parallel requests`)
+- runtime worker visibility must include current step age to identify stalled stages
+- 3GPP ingest planning must support a prioritized workflow:
+  - MCPTT specs first
+  - newest version to oldest version inside each spec family
+  - fast ingest first
+  - deep summary on the latest version only
+  - other 3GPP specs afterwards in fast mode
+- the UI must expose a planning view showing what is done, how it was processed, and what remains queued
 
 ## 3. Scope
 
@@ -35,6 +48,7 @@ The system must provide:
 - generic document directories
 - code / script / config directories
 - Thunderbird / IMAP archives in mbox format
+- Jira issue archive directories
 - symbolic links pointing to such directories
 
 ### 3.2 Supported File Types
@@ -138,6 +152,8 @@ Services:
 
 - Qdrant in Docker
 - Ollama locally
+- optional remote Ollama servers for weighted embedding offload
+- a separately configurable LLM generation server for summaries and Ask LLM
 - systemd-managed background service
 
 UI:
@@ -561,10 +577,13 @@ Watched directory configuration must also allow selecting `parser_profiles` per 
 
 Each source may enable multiple parser profiles at once, for example:
 
-- `documents` -> `generic_text,pdf,office`
-- `code` -> `generic_text,code`
-- `3gpp` -> `generic_text,pdf,office,3gpp_spec`
+- `documents` -> `archive_zip,generic_text,pdf,office`
+- `code` -> `archive_zip,generic_text,code`
+- `3gpp` -> `archive_zip,generic_text,pdf,office,3gpp_spec`
 - `thunderbird` -> `thunderbird_mbox,email_attachments`
+
+The `archive_zip` parser profile must allow the service to inspect `.zip` archives and extract indexable inner files such as text, PDF, and Office documents. This behavior is general and must not be limited to one specific source like 3GPP.
+When an indexed chunk originates from a file inside an archive, the system should preserve and expose the inner archive path in metadata, retrieval results, and answer context.
 
 The service should also support a dedicated `3gpp` source type with:
 
@@ -585,6 +604,38 @@ The search UI should also support filtering by:
 
 These filters must be applied in the backend retrieval path, not only in the browser rendering layer.
 
+The web UI should separate operational monitoring from source configuration:
+
+- `Overview` for service state, current work, recent tasks, and logs
+- `Configuration` for watched directory setup and parser/collection tuning
+
+The `Configuration` UI should use explicit parser-profile checkboxes instead of a free-text parser profile field.
+The watched directory actions should isolate destructive operations from routine ones:
+
+- `Scan` and `Edit` grouped as standard actions
+- `Delete` visually separated and color-coded as a destructive action to reduce misclick risk
+
+The watched directory table should remain compact and prioritize the most useful columns:
+
+- source type
+- path
+
+Jira issues should be treated as a first-class product-planning corpus and queued ahead of large background technical corpora such as broad 3GPP backfills, so version/feature planning questions remain responsive during long ingests.
+The Planning view should expose Jira-specific progress at project level, with indexed / pending / error counts per project, alongside 3GPP progress.
+The Planning view should also provide high-level visual status charts for major corpora such as 3GPP and Jira, showing indexed / pending / error distribution at a glance.
+The Search view should provide an explicit collection switch so the user can quickly move between corpora such as `jira`, `3gpp`, and `global_knowledge` without manually editing filters.
+- collection
+- parser summary
+- state
+- last scan status
+- actions
+
+Editing an existing watched directory should be direct from the table:
+
+- a row click should load the source into the form
+- the currently edited source should be visually highlighted
+- the form should clearly indicate when it is updating an existing source instead of creating a new one
+
 The service should maintain a lightweight document memory per indexed file:
 
 - a structured summary generated after successful indexing
@@ -596,6 +647,11 @@ The answer synthesis mode must support at least two response depth levels:
 
 - `standard`: clear, precise, moderately detailed
 - `deep`: clear, precise, more explanatory and more structured
+
+The answer synthesis mode must also support an explicit answer language selector:
+
+- `fr` by default
+- `en` as an alternative option
 
 LLM answers must prefer a structured format with:
 
@@ -612,6 +668,12 @@ In the web UI, these inline citations should be clickable and jump directly to t
 Current implementation note:
 
 - task execution is split across one scan worker and multiple ingestion workers
+- heavy ingestion workers should run as separate OS processes rather than only Python threads, so CPU-heavy document preparation can use multiple cores
+- the number of ingest worker processes should be configurable by the user
+- the UI should expose both configured worker count and currently active worker count
+- changing worker count may require a service restart to take effect cleanly
+- the UI should expose a `Restart service` control so configured worker counts can be applied without using a terminal
+- runtime worker visibility should include subtree impact, not only the Python worker process itself, so CPU and memory triggered by helper subprocesses are visible in the UI
 - this allows `index_file` and `delete_file` work to continue while a long `scan_directory` is still running
 - a blocked file must not stall the entire ingestion queue; other ingestion workers must continue consuming ready tasks
 - file stat/read/hash operations must be bounded by a timeout so a hanging filesystem access can fail the current file instead of freezing a worker forever
@@ -622,6 +684,7 @@ Current implementation note:
 - task claiming in SQLite must be atomic so that multiple workers cannot start the same task concurrently
 - files left in `pending` state without any active task must be detected and requeued automatically by the service
 - the transition `file -> pending` and the creation of the corresponding indexing task must be committed atomically in the same SQLite transaction
+- SQLite connections should use WAL mode, a significant `busy_timeout`, and a retry/backoff path for transient `database is locked` contention under multi-process load
 - files in `error` state should be retryable explicitly in small bounded batches with a bounded number of attempts
 - global search should query all configured enabled collections and merge the best results
 

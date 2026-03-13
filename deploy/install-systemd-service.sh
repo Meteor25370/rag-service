@@ -53,11 +53,11 @@ Environment=RAG_SERVICE_HOME=${RUNTIME_DATA_DIR}
 ExecStart=/usr/bin/python3 ${DEPLOY_DIR}/server.py
 Restart=always
 RestartSec=3
-KillMode=process
+KillMode=control-group
 KillSignal=SIGINT
 FinalKillSignal=SIGKILL
 SendSIGKILL=yes
-TimeoutStopSec=5
+TimeoutStopSec=10
 
 [Install]
 WantedBy=default.target
@@ -70,10 +70,8 @@ echo "[4/6] Enable service"
 systemctl --user enable rag-service.service
 
 echo "[5/6] Restart service"
-systemctl --user stop rag-service.service || true
-pkill -9 -f "${DEPLOY_DIR}/server.py" || true
 systemctl --user reset-failed rag-service.service || true
-systemctl --user start rag-service.service
+systemctl --user restart rag-service.service
 
 echo "[6/6] Deployed from ${ROOT_DIR} to ${DEPLOY_DIR}"
 echo "Runtime data dir: ${RUNTIME_DATA_DIR}"
