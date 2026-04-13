@@ -29,6 +29,24 @@ Then open:
 - `/api/control/pause` POST `{"paused": true}`
 - `/health`
 
+## Expert 3GPP Pipeline
+
+The repo now includes a first structured 3GPP corpus builder:
+
+```bash
+cd /home/egarcia/rag-service
+python3 scripts/expert_3gpp_pipeline.py --root /data/3gpp --output-dir build/expert_3gpp
+```
+
+This produces:
+
+- `documents.jsonl`
+- `clauses.jsonl`
+- `edges.jsonl`
+- `manifest.json`
+
+See [`EXPERT_3GPP_PIPELINE.md`](/home/egarcia/rag-service/EXPERT_3GPP_PIPELINE.md) for the roadmap, schema, and next training steps.
+
 ## Current behavior
 
 - Qdrant status is probed on `http://127.0.0.1:6333/collections`

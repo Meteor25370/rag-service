@@ -50,6 +50,8 @@ Type=simple
 WorkingDirectory=${DEPLOY_DIR}
 Environment=PYTHONUNBUFFERED=1
 Environment=RAG_SERVICE_HOME=${RUNTIME_DATA_DIR}
+Environment=RAG_SERVICE_HOST=0.0.0.0
+Environment=RAG_SERVICE_PORT=6334
 ExecStart=/usr/bin/python3 ${DEPLOY_DIR}/server.py
 Restart=always
 RestartSec=3

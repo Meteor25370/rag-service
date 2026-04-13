@@ -7,6 +7,9 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=/home/egarcia/.rag-service/app
 Environment=PYTHONUNBUFFERED=1
+Environment=RAG_SERVICE_HOME=/home/egarcia/.rag-service/data
+Environment=RAG_SERVICE_HOST=0.0.0.0
+Environment=RAG_SERVICE_PORT=6334
 ExecStart=/usr/bin/python3 /home/egarcia/.rag-service/app/server.py
 Restart=always
 RestartSec=3
